@@ -1,8 +1,4 @@
 #!/bin/bash
-# Builds AI Usage Bar into ~/Applications and starts it at login via a LaunchAgent.
-#   ./install.sh            build + install + start
-#   ./install.sh --build    build only (output: build/AIUsageBar.app)
-#   ./install.sh --uninstall
 set -euo pipefail
 cd "$(dirname "$0")"
 

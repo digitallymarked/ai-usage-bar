@@ -1,10 +1,5 @@
 import Foundation
 
-/// Claude (Pro / Max / Team) plan limits.
-///
-/// Reads the OAuth login that the Claude desktop app / Claude Code store in the macOS keychain
-/// (service "Claude Code-credentials", falling back to ~/.claude/.credentials.json) and calls the
-/// same usage endpoint Claude Code's `/usage` uses. Undocumented API: may change without notice.
 struct ClaudeProvider: UsageProvider {
     let id = "claude"
     let name = "Claude"
@@ -46,12 +41,11 @@ struct ClaudeProvider: UsageProvider {
 
 enum ClaudeCreds {
     static let service = "Claude Code-credentials"
-    static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e" // Claude Code's public OAuth client
+    static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let tokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
     static let fileURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/.credentials.json")
 
-    /// Runs /usr/bin/security, which the keychain item's ACL already trusts (no permission prompts).
     @discardableResult
     static func security(_ args: [String], stdin: String? = nil) -> (Int32, String) {
         let p = Process()
@@ -89,11 +83,9 @@ enum ClaudeCreds {
         return NSUserName()
     }
 
-    /// Writes refreshed tokens back to every store Claude reads, so the Claude app stays signed in.
     static func writeBlob(_ blob: [String: Any]) {
         guard let d = try? JSONSerialization.data(withJSONObject: blob) else { return }
         let hex = d.map { String(format: "%02x", $0) }.joined()
-        // `security -i` reads the command from stdin, keeping the secret out of argv / ps.
         security(["-i"], stdin: "add-generic-password -U -a \"\(keychainAccount())\" -s \"\(service)\" -X \(hex)\n")
 
         guard FileManager.default.fileExists(atPath: fileURL.path),
@@ -109,7 +101,6 @@ enum ClaudeCreds {
         }
     }
 
-    /// Returns a valid access token, refreshing only after the stored one has expired.
     static func accessToken() async throws -> String {
         let hint = "sign in to the Claude desktop app or Claude Code"
         guard var blob = readBlob(), var oauth = blob["claudeAiOauth"] as? [String: Any],

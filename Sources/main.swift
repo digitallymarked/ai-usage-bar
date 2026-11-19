@@ -1,4 +1,3 @@
-// AI Usage Bar — a menu-bar ring showing how much of your AI plan's usage limit you've used.
 import Cocoa
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -6,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var provider: UsageProvider = Providers.selected
     var snapshot: UsageSnapshot?
     var lastError: String?
-    var generation = 0 // drops responses from a provider the user has since switched away from
+    var generation = 0
     let pollInterval: TimeInterval = 120
 
     func applicationDidFinishLaunching(_ n: Notification) {
@@ -112,8 +111,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func quit() { NSApp.terminate(nil) }
 }
 
-/// `AIUsageBar --snapshot <provider-id> <out.png>`: fetch live data, render the dropdown rows, exit.
-/// Lets you check the menu without clicking it (handy for CI or scripted verification).
 func runSnapshot(providerID: String, out: String) {
     guard let p = Providers.all.first(where: { $0.id == providerID }) else {
         print("unknown provider \(providerID); options: \(Providers.all.map(\.id).joined(separator: ", "))")

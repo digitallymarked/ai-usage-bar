@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Mock of the ChatGPT /wham/usage endpoint for testing the Codex provider without an account.
-
-Response shape follows openai/codex codex-rs/backend-client (RateLimitWindowSnapshot).
-Started automatically by tests/test_codex.sh.
-"""
 import json, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 

@@ -1,13 +1,11 @@
 import Foundation
 
-/// One rate-limit window (e.g. "5-hour session", "weekly").
 struct LimitInfo {
     let label: String
     let percent: Double
     let resetsAt: Date?
 }
 
-/// What a provider returns. `primary` drives the menu-bar ring; `others` appear in the dropdown.
 struct UsageSnapshot {
     let primary: LimitInfo?
     let others: [LimitInfo]
@@ -33,13 +31,9 @@ enum FetchError: Error, CustomStringConvertible {
     }
 }
 
-/// A source of plan-usage data. Add a new provider by conforming to this and listing it in `Providers.all`.
 protocol UsageProvider {
-    /// Stable identifier stored in user defaults.
     var id: String { get }
-    /// Name shown in the Provider menu.
     var name: String { get }
-    /// Web page with the provider's own usage view.
     var usagePageURL: URL { get }
     func fetch() async throws -> UsageSnapshot
 }
@@ -56,8 +50,6 @@ enum Providers {
         set { UserDefaults.standard.set(newValue.id, forKey: defaultsKey) }
     }
 }
-
-// MARK: - Shared helpers
 
 enum ISO {
     static let frac: ISO8601DateFormatter = {

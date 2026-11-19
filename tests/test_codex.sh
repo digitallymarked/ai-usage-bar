@@ -1,5 +1,4 @@
 #!/bin/bash
-# Exercises the Codex provider against tests/codex_mock.py using a throwaway CODEX_HOME.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ -x build/AIUsageBar ]] || swiftc -O -o build/AIUsageBar Sources/*.swift -framework Cocoa

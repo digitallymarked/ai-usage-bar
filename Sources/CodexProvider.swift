@@ -1,16 +1,10 @@
 import Foundation
 
-/// OpenAI Codex (ChatGPT Plus / Pro / Team) plan limits.
-///
-/// Reads the ChatGPT login that the Codex CLI stores in $CODEX_HOME/auth.json (default ~/.codex)
-/// and calls the endpoint Codex's `/status` uses (schema per openai/codex `backend-client`).
-/// Read-only: it never refreshes tokens — run `codex` once if the session has expired.
 struct CodexProvider: UsageProvider {
     let id = "codex"
     let name = "OpenAI Codex"
     let usagePageURL = URL(string: "https://chatgpt.com/settings/usage")!
 
-    /// Override with AI_USAGE_BAR_CODEX_URL for testing against a mock server.
     static let usageURL = URL(string: ProcessInfo.processInfo.environment["AI_USAGE_BAR_CODEX_URL"]
         ?? "https://chatgpt.com/backend-api/wham/usage")!
 

@@ -1,7 +1,5 @@
 import Cocoa
 
-// MARK: - Colours: Flexoki by Steph Ango (https://stephango.com/flexoki, MIT)
-
 func flexoki(dark: UInt32, light: UInt32) -> NSColor {
     func c(_ h: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((h >> 16) & 0xFF) / 255, green: CGFloat((h >> 8) & 0xFF) / 255,
@@ -13,18 +11,15 @@ func flexoki(dark: UInt32, light: UInt32) -> NSColor {
 }
 
 enum Palette {
-    // Dropdown rows: Flexoki 300 on dark, 600 on light.
     static let green = flexoki(dark: 0xA0AF54, light: 0x66800B)
     static let yellow = flexoki(dark: 0xDFB431, light: 0xAD8301)
     static let orange = flexoki(dark: 0xEC8B49, light: 0xBC5215)
     static let red = flexoki(dark: 0xE8705F, light: 0xAF3029)
-    // Menu-bar ring: the dark menu bar is translucent mid-grey, so go lighter (200).
     static let ringGreen = flexoki(dark: 0xBEC97E, light: 0x66800B)
     static let ringYellow = flexoki(dark: 0xECCB60, light: 0xAD8301)
     static let ringOrange = flexoki(dark: 0xF9AE77, light: 0xBC5215)
     static let ringRed = flexoki(dark: 0xF89A8A, light: 0xAF3029)
 
-    /// green < 50 % ≤ yellow < 70 % ≤ orange < 90 % ≤ red
     static func severity(_ p: Double, ring: Bool = false) -> NSColor {
         if p >= 90 { return ring ? ringRed : red }
         if p >= 70 { return ring ? ringOrange : orange }
@@ -32,8 +27,6 @@ enum Palette {
         return ring ? ringGreen : green
     }
 }
-
-// MARK: - Menu-bar ring
 
 func ringImage(percent: Double?, size: CGFloat = 15) -> NSImage {
     NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
@@ -56,8 +49,6 @@ func ringImage(percent: Double?, size: CGFloat = 15) -> NSImage {
     }
 }
 
-// MARK: - Time formatting
-
 func resetsIn(_ d: Date?) -> String {
     guard let d = d else { return "" }
     var s = Int(d.timeIntervalSinceNow)
@@ -76,9 +67,6 @@ func clockTime(_ d: Date?) -> String {
     return f.string(from: d)
 }
 
-// MARK: - Dropdown row
-
-/// Label, % used, coloured bar and reset time.
 final class BarRowView: NSView {
     init(_ info: LimitInfo) {
         super.init(frame: NSRect(x: 0, y: 0, width: 280, height: 50))
