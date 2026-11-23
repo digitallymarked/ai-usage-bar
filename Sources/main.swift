@@ -13,7 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu(); menu.delegate = self
         item.menu = menu
         render()
-        refresh()
+        if Settings.setupComplete {
+            refresh()
+        } else {
+            // First run: explain before anything touches the keychain or network.
+            DispatchQueue.main.async { self.showWizard() }
+        }
         Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in self?.refresh() }
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.render() }
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -23,7 +28,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    var wizard: WizardController?
+
+    func showWizard(provider target: UsageProvider? = nil) {
+        if let w = wizard { w.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
+        let w = WizardController()
+        w.onFinish = { [weak self] p, s in
+            guard let self = self else { return }
+            self.provider = p
+            self.generation += 1
+            self.snapshot = s
+            self.lastError = nil
+            self.render()
+        }
+        w.onClose = { [weak self] in self?.wizard = nil; self?.render() }
+        wizard = w
+        w.show(provider: target)
+    }
+
     func refresh() {
+        guard Settings.setupComplete else { return }
         let p = provider, gen = generation
         Task {
             let result: Result<UsageSnapshot, Error>
@@ -44,7 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let pct = snapshot?.primary?.percent
         b.image = ringImage(percent: pct)
         b.toolTip = "\(provider.name) usage"
-        let text = pct.map { " \(Int($0.rounded()))%" } ?? (lastError == nil ? " …" : " !")
+        let text = pct.map { " \(Int($0.rounded()))%" }
+            ?? (!Settings.setupComplete ? " Set up" : lastError == nil ? " …" : " !")
         b.attributedTitle = NSAttributedString(string: text, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)])
         if let m = item.menu { buildMenu(m) }
@@ -57,9 +82,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func buildMenu(_ menu: NSMenu) {
         menu.removeAllItems()
-        let header = NSMenuItem(title: "\(provider.name) usage", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: Settings.setupComplete ? "\(provider.name) usage" : "AI Usage Bar", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
+        if !Settings.setupComplete {
+            let mi = NSMenuItem(title: "Not set up yet — choose a provider to start", action: nil, keyEquivalent: "")
+            mi.isEnabled = false
+            menu.addItem(mi)
+        }
         if let s = snapshot {
             for info in [s.primary].compactMap({ $0 }) + s.others {
                 let mi = NSMenuItem(); mi.view = BarRowView(info); menu.addItem(mi)
@@ -89,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let providerItem = NSMenuItem(title: "Provider", action: nil, keyEquivalent: "")
         providerItem.submenu = providerMenu
         menu.addItem(providerItem)
+        menu.addItem(withTitle: "Set up provider…", action: #selector(openWizard), keyEquivalent: "").target = self
 
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q").target = self
@@ -96,8 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func chooseProvider(_ sender: NSMenuItem) {
         let p = Providers.all[sender.tag]
-        guard p.id != provider.id else { return }
+        guard p.id != provider.id || !Settings.setupComplete else { return }
+        // Not connected yet: walk through setup instead of switching to a broken state.
+        guard case .signedIn = p.setupStatus() else { showWizard(provider: p); return }
         Providers.selected = p
+        Settings.setupComplete = true
         provider = p
         generation += 1
         snapshot = nil
@@ -106,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refresh()
     }
 
+    @objc func openWizard() { showWizard() }
     @objc func refreshNow() { refresh() }
     @objc func openUsage() { NSWorkspace.shared.open(provider.usagePageURL) }
     @objc func quit() { NSApp.terminate(nil) }

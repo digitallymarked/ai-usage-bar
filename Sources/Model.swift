@@ -31,11 +31,83 @@ enum FetchError: Error, CustomStringConvertible {
     }
 }
 
+/// Something the user can click in the setup wizard.
+struct SetupAction {
+    enum Kind {
+        case openURL(URL)
+        case runInTerminal(String)   // opens Terminal running this command
+        case copy(String)            // copies text; shown as a command box
+    }
+    let title: String
+    let kind: Kind
+}
+
+/// What to tell the user when a provider isn't connected yet.
+struct SetupGuide {
+    let headline: String
+    let steps: [String]
+    let actions: [SetupAction]
+}
+
+enum SetupStatus {
+    case signedIn
+    case needsSetup(SetupGuide)
+}
+
 protocol UsageProvider {
     var id: String { get }
     var name: String { get }
     var usagePageURL: URL { get }
     func fetch() async throws -> UsageSnapshot
+
+    // Setup wizard metadata. A new provider only has to implement these.
+    var planRequired: String { get }
+    /// Shown before the first fetch when it triggers a system prompt; nil = fetch immediately.
+    var connectNotice: String? { get }
+    /// Detects credentials without any network call or secret read.
+    func setupStatus() -> SetupStatus
+    /// Offered on the failure screen to sign in again.
+    var reconnectAction: SetupAction? { get }
+}
+
+extension UsageProvider {
+    var connectNotice: String? { nil }
+    var reconnectAction: SetupAction? { nil }
+}
+
+enum Shell {
+    /// Finds a CLI. GUI apps get a minimal PATH, so common install dirs are searched too.
+    static func find(_ name: String) -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        let extra = ["/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin", "\(home)/.npm-global/bin",
+                     "\(home)/.bun/bin", "\(home)/.claude/local"]
+        for dir in path + extra {
+            let f = "\(dir)/\(name)"
+            if FileManager.default.isExecutableFile(atPath: f) { return f }
+        }
+        return nil
+    }
+}
+
+/// Persistent settings. `AI_USAGE_BAR_DEFAULTS_SUITE` points them at an isolated domain for testing.
+enum Settings {
+    static let defaults: UserDefaults = {
+        if let suite = ProcessInfo.processInfo.environment["AI_USAGE_BAR_DEFAULTS_SUITE"],
+           let d = UserDefaults(suiteName: suite) { return d }
+        return .standard
+    }()
+    static let setupKey = "setupComplete"
+
+    /// Users who picked a provider before the wizard existed count as set up.
+    static var setupComplete: Bool {
+        get {
+            if defaults.bool(forKey: setupKey) { return true }
+            if defaults.string(forKey: Providers.defaultsKey) != nil { defaults.set(true, forKey: setupKey); return true }
+            return false
+        }
+        set { defaults.set(newValue, forKey: setupKey) }
+    }
 }
 
 enum Providers {
@@ -44,10 +116,10 @@ enum Providers {
 
     static var selected: UsageProvider {
         get {
-            let id = UserDefaults.standard.string(forKey: defaultsKey) ?? all[0].id
+            let id = Settings.defaults.string(forKey: defaultsKey) ?? all[0].id
             return all.first { $0.id == id } ?? all[0]
         }
-        set { UserDefaults.standard.set(newValue.id, forKey: defaultsKey) }
+        set { Settings.defaults.set(newValue.id, forKey: defaultsKey) }
     }
 }
 

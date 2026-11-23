@@ -7,6 +7,29 @@ struct ClaudeProvider: UsageProvider {
 
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
+    let planRequired = "Claude Pro, Max or Team"
+    let connectNotice: String? = "macOS will ask whether AI Usage Bar may use the “Claude Code-credentials” keychain item. That is your existing Claude login. Click Always Allow so it only asks once."
+
+    var reconnectAction: SetupAction? {
+        Shell.find("claude").map { _ in SetupAction(title: "Sign in with Claude Code", kind: .runInTerminal("claude")) }
+    }
+
+    func setupStatus() -> SetupStatus {
+        if ClaudeCreds.hasLogin() { return .signedIn }
+        var actions: [SetupAction] = []
+        if Shell.find("claude") != nil {
+            actions.append(SetupAction(title: "Open Claude Code to sign in", kind: .runInTerminal("claude")))
+        } else {
+            actions.append(SetupAction(title: "Download the Claude app", kind: .openURL(URL(string: "https://claude.ai/download")!)))
+            actions.append(SetupAction(title: "Install Claude Code", kind: .openURL(URL(string: "https://docs.claude.com/en/docs/claude-code/overview")!)))
+        }
+        return .needsSetup(SetupGuide(
+            headline: "No Claude login found on this Mac",
+            steps: ["Sign in to Claude Code or the Claude desktop app with your Pro, Max or Team account.",
+                    "Come back here and press Check again."],
+            actions: actions))
+    }
+
     func fetch() async throws -> UsageSnapshot {
         let token = try await ClaudeCreds.accessToken()
         var req = URLRequest(url: Self.usageURL, timeoutInterval: 20)
@@ -62,6 +85,15 @@ enum ClaudeCreds {
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         return (p.terminationStatus, String(data: data, encoding: .utf8) ?? "")
+    }
+
+    /// True if a Claude login exists. Reads keychain metadata only (no secret, no prompt).
+    static func hasLogin() -> Bool {
+        if security(["find-generic-password", "-s", service]).0 == 0 { return true }
+        if let d = try? Data(contentsOf: fileURL),
+           let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+           let o = j["claudeAiOauth"] as? [String: Any], o["accessToken"] is String { return true }
+        return false
     }
 
     static func readBlob() -> [String: Any]? {

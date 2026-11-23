@@ -14,6 +14,36 @@ struct CodexProvider: UsageProvider {
         return home.appendingPathComponent("auth.json")
     }
 
+    let planRequired = "ChatGPT Plus, Pro or Team"
+
+    var reconnectAction: SetupAction? { SetupAction(title: "Run codex login", kind: .runInTerminal("codex login")) }
+
+    static func hasLogin() -> Bool {
+        guard let d = try? Data(contentsOf: authURL),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let t = j["tokens"] as? [String: Any], t["access_token"] is String else { return false }
+        return true
+    }
+
+    func setupStatus() -> SetupStatus {
+        if Self.hasLogin() { return .signedIn }
+        if Shell.find("codex") != nil {
+            return .needsSetup(SetupGuide(
+                headline: "Codex is installed but not signed in",
+                steps: ["Press the button to open Terminal and run `codex login`.",
+                        "Finish signing in with your ChatGPT account in the browser.",
+                        "Come back here and press Check again."],
+                actions: [SetupAction(title: "Open Terminal and sign in", kind: .runInTerminal("codex login"))]))
+        }
+        return .needsSetup(SetupGuide(
+            headline: "The Codex CLI isn't installed",
+            steps: ["Install it by pasting this into Terminal:",
+                    "Run `codex login` and sign in with your ChatGPT account.",
+                    "Come back here and press Check again."],
+            actions: [SetupAction(title: "npm install -g @openai/codex", kind: .copy("npm install -g @openai/codex")),
+                      SetupAction(title: "Codex install docs", kind: .openURL(URL(string: "https://github.com/openai/codex")!))]))
+    }
+
     func fetch() async throws -> UsageSnapshot {
         let hint = "run `codex login` with your ChatGPT account"
         guard let d = try? Data(contentsOf: Self.authURL),

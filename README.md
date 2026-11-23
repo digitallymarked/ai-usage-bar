@@ -54,6 +54,14 @@ This builds `~/Applications/AIUsageBar.app` and adds a LaunchAgent so it starts 
 
 It refreshes every 2 minutes, when you open the menu, and after the Mac wakes.
 
+### First run
+
+The first time it opens, a short wizard asks which provider you use and walks you through connecting it — detecting your login, telling you what to install or sign in to if it's missing, and finishing only once a real usage reading comes back.
+
+<img src="docs/wizard-choose.png" width="300" alt="Setup wizard: choose a provider"> <img src="docs/wizard-connect-dark.png" width="300" alt="Setup wizard: connect step with install instructions, dark mode"> <img src="docs/wizard-done.png" width="300" alt="Setup wizard: connected, showing the first reading">
+
+Already signed in? It's two or three clicks. Re-run it any time from **Set up provider…** in the dropdown. If you used an earlier version, your saved provider is kept and the wizard is skipped.
+
 ## Development
 
 ```sh
@@ -64,13 +72,20 @@ tests/test_codex.sh                          # Codex provider against a local mo
 
 ### Adding a provider
 
-Implement `UsageProvider` (see `Sources/Model.swift`) and add it to `Providers.all`:
+Implement `UsageProvider` (see `Sources/Model.swift`) and add it to `Providers.all`. The setup wizard is built from the same list, so the new provider appears in it automatically. `planRequired` and `setupStatus()` drive its card and connect step (`setupStatus` must detect credentials without a network call or reading secrets):
 
 ```swift
 struct MyProvider: UsageProvider {
     let id = "my-ai"
     let name = "My AI"
     let usagePageURL = URL(string: "https://example.com/usage")!
+    let planRequired = "My AI Pro"
+    func setupStatus() -> SetupStatus {
+        MyCreds.exists ? .signedIn : .needsSetup(SetupGuide(
+            headline: "Not signed in to My AI",
+            steps: ["Install and sign in to the My AI app.", "Come back and press Check again."],
+            actions: [SetupAction(title: "Download My AI", kind: .openURL(URL(string: "https://example.com/get")!))]))
+    }
     func fetch() async throws -> UsageSnapshot {
         // primary drives the menu-bar ring; others are listed in the dropdown
         UsageSnapshot(primary: LimitInfo(label: "Daily", percent: 12, resetsAt: nil), others: [], fetchedAt: Date())
